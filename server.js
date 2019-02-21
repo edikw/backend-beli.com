@@ -163,7 +163,73 @@ app.get('/product/:id', (req,res, next)=>{
 });
 
 app.post('/user/chart/:id', (req, res, next)=>{
-	userController.postCartId(docRefUser, docRefChart, req, res);
+	var dataChart = [];
+	// var check;
+	var id_barang = [];
+	var checkRes = false;
+
+	function getUser(){
+		docRefUser.doc(req.params.id).get().then(doc => {
+			console.log("CART USER", doc.data().chart)
+			dataChart = doc.data().chart
+
+			if(doc.data().chart.length > 0){
+				console.log("hasil checking",checking(doc.data().chart))
+				if(checking(doc.data().chart) == true){
+					res.status(400).json({
+						message: 'barang ada'
+					})
+				}else {
+					console.log('mau masuk fungsi addd cart yang sudaH ADA')
+					addChart();
+				}
+			}else{
+				console.log('mau masuk fungsi ad cart masih kosongan')
+				addChart();
+			}
+		})
+	}
+	getUser();
+
+		function addChart(){
+				dataChart.push({
+					id_barang: req.body.id_barang
+				});
+
+				console.log("DI FUNSI AD CART", dataChart)
+
+				updateChart();
+		}
+
+
+
+		function updateChart(){
+
+			console.log('masuk fungsi updateChart')
+			docRefUser.doc(req.params.id).update({
+				"chart": dataChart
+			})
+			res.status(200).json({
+				message: 'success'
+			})
+			
+		}
+
+
+		function checking (barang) {
+			console.log('fungsi checking')
+			var check;
+			for (var i = 0; i < barang.length; i++) {
+				if(barang[i].id_barang == req.body.id_barang){
+					return check = true
+				}else {
+					check = false
+				}
+			}
+		}
+
+
+
 });
 
 app.get('/chart/:id', (req, res)=>{
@@ -260,7 +326,8 @@ app.post('/user/transaksi/:id', (req, res)=>{
 				email: req.body.email,
 				no_handphone: req.body.no_handphone,
 				catatan: req.body.catatan,
-				nama_penerima: req.body.nama_penerima
+				nama_penerima: req.body.nama_penerima,
+				upload_bukti: null
 			}).then(ref => {
 				dataTransaksi.push({
 					id_transaksi: ref.id,
@@ -348,6 +415,105 @@ app.get('/user/transaksi/:id', (req,res,next)=> {
 	})
 });
 
+app.post('/search', (req, res, next)=> {
+	var result = []
+	var data = []
+	docRefBarang.get().then(snapshot => {
+		snapshot.forEach(doc => {
+			data.push(doc.data())	
+		})
+
+		checkSearch(data ,function(result){
+			if(result.unique == true){
+				res.status(200).json({
+					result: result.result
+				})	
+			}else {
+				res.status(400).json({
+					message: result.result
+				})
+			}
+		}) 
+	});
+
+
+
+	function checkSearch(data, callback){
+		var unique;
+		var dataResult = []
+		for (var i = 0; i < data.length; i++) {
+			if(req.body.search.toLowerCase() == data[i].nama_barang.toLowerCase() || data[i].nama_barang.toLowerCase().indexOf(req.body.search.toLowerCase()) !== -1){
+				unique = true
+				dataResult.push(data[i])
+              }else {
+              	unique = false;
+              }
+		}
+		if(dataResult.length >0){
+			callback({
+				unique: true,
+				result: dataResult
+			});
+		}else {
+			callback({
+				unique: false,
+				result: "Data tidak ada"
+			})			
+			
+		}
+	}
+});
+
+
+app.put('/profile/users/:id', (req, res)=>{
+	var dataUser = []
+
+	docRefUser.get().then(snapshot => {
+		snapshot.forEach(doc => {
+			console.log(doc.data().email)
+			if(doc.id != req.params.id){
+				dataUser.push(doc.data().email)
+			}
+		})
+		if(compaireEmail() == true){
+			updateUser()
+		}else {
+			console.log('email sudah ada')
+			res.status(400).json({
+				message: 'email sudah ada'
+			})
+		}
+	})
+
+	function compaireEmail(){
+		var checkEmail = false
+		for (var i = 0; i < dataUser.length; i++) {
+			if(dataUser[i] != req.body.email){
+				return checkEmail = true
+			}
+		}
+	}
+
+	function updateUser(){
+		docRefUser.doc(req.params.id).update({
+			fullname : req.body.fullname,
+			username : req.body.username,
+			email : req.body.email,
+			password : req.body.password,
+			alamat: req.body.alamat,
+			birthday: req.body.birthday
+
+		}).then(()=>{
+			console.log("update data")
+			res.status(200).json({
+				message: "success"
+			})
+		}).catch(err=>{
+			console.log("Error", err)
+		})
+	}
+});
+
 
 
 
@@ -408,22 +574,6 @@ app.get('/user/transaksi/:id', (req,res,next)=> {
 // 	})
 // });
 
-// app.put('/profile/users/:id', (req, res)=>{
-// 	docRefUser.doc(req.params.id).update({
-// 		fullname : req.body.fullname,
-// 		username : req.body.username,
-// 		email : req.body.email,
-// 		password : req.body.password,
-// 		alamat: req.body.alamat
-// 	}).then(()=>{
-// 		console.log("update data")
-// 		res.status(200).json({
-// 			message: "success"
-// 		})
-// 	}).catch(err=>{
-// 		console.log("Error", err)
-// 	})
-// });
 
 // app.delete('/users/:id', (req,res)=>{
 // 	docRefUser.doc(req.params.id).delete().then(()=>{
