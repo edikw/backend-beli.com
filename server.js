@@ -1,15 +1,16 @@
 const express = require('express');
 const app = express();
 var bodyParser = require('body-parser');
-const crypto =  require('crypto-js');
+const crypto =  require('crypto');
+const multer = require('multer');
+const path = require('path');
 var jwt = require('jsonwebtoken');
 var cors = require('cors');
 app.use(cors());
-app.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 
 const db = require('./firebase.js');
-
 
 app.listen(3000, function(){
 	console.log("run port 3000")
@@ -25,7 +26,25 @@ var docRefBanner = db.collection('banner');
 var userController = require('./controller/user.js');
 var productController = require('./controller/product.js');
 var bannerController = require('./controller/banner.js');
-var cartController = require('./controller/cart.js');
+var searchController = require('./controller/search.js');
+var transaksiController = require('./controller/transaksi.js');
+
+// =============================================
+
+var storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, './public')
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.fieldname + '-' + Date.now() + file.originalname)
+  }
+})
+
+var upload = multer({
+	storage: storage
+}).single('image');
+
+// ================================================
 
 app.all('/*', (req, res, next)=>{
 	res.header({
@@ -42,55 +61,59 @@ app.post('/register', (req, res, next) => {
 	var emailExist
 
 	var getRefUserEmail = docRefUser.where('email', '==', req.body.email)
-	var getRefUserUsername = docRefUser.where('username', '==', req.body.username)
-	// const hashPassword = crypto.AES(req.body.password)
-	// console.log('hass', hashPassword)
-	// var inputID
+	const hashPassword = crypto.AES(req.body.password)
+	console.log('hass', hashPassword)
+	var inputID
 
 	async function registerUser() {
 		try {
 
-		await getRefUserUsername.get().then(snapshot => {
-			snapshot.forEach(doc => {
-				usernameExist = doc.data()
-			})
-		})
-
 		await getRefUserEmail.get().then(snapshot => {
 			snapshot.forEach(doc => {
 				emailExist = doc.data()
-			})
-		})
+			});
+		});
 
-		if (usernameExist) {
-			res.status(400).json({
-				status: 'Failed',
-				message: 'Username exist'
-			})
-			console.log('username sudah ada')
-		}
-		else if (emailExist) {
-			res.status(400).json({
-				status: 'Failed',
-				message: 'Email exist'
-			})
-			console.log('Email sudah ada')
-		} 
-		else if (emailExist && usernameExist) {
-			res.status(400).json({
-				status: 'Failed',
-				message: 'Username and Email exist'
-			})
-			console.log('username dan email sudah ada')
-		} else {
-			userController.postUser(docRefUser, req, res);
-		}
+			if (emailExist) {
+				res.status(400).json({
+					status: 'Failed',
+					message: 'email exist'
+				})
+				console.log('email sudah ada')
+			}else {
+				userController.postUser(docRefUser, req, res);
+			}
 
 		} catch (err) {
 			console.log('Opps, error', err)
 		}
 	}
 	registerUser();
+
+	// var genRandomString = function(length){
+	//     return crypto.randomBytes(Math.ceil(length/2))
+	//         .toString('hex')
+	//         .slice(0,length);
+	// 	};
+
+	// var sha512 = function(password, salt){
+	//     var hash = crypto.createHmac('sha512', salt);
+	//     hash.update(password);
+	//     var value = hash.digest('hex');
+	//     return {
+	//         salt:salt,
+	//         passwordHash:value
+	//     };
+	// };
+
+	// function saltHashPassword(userpassword) {
+	//     var salt = genRandomString(16); 
+	//     var passwordData = sha512(userpassword, salt);
+	//     console.log('UserPassword = '+userpassword);
+	//     console.log('Passwordhash = '+passwordData.passwordHash);
+	// }
+
+	// saltHashPassword(req.body.password);
 });
 
 app.post('/login', (req, res, next) => {
@@ -164,27 +187,22 @@ app.get('/product/:id', (req,res, next)=>{
 
 app.post('/user/chart/:id', (req, res, next)=>{
 	var dataChart = [];
-	// var check;
 	var id_barang = [];
 	var checkRes = false;
 
 	function getUser(){
 		docRefUser.doc(req.params.id).get().then(doc => {
-			console.log("CART USER", doc.data().chart)
 			dataChart = doc.data().chart
 
 			if(doc.data().chart.length > 0){
-				console.log("hasil checking",checking(doc.data().chart))
 				if(checking(doc.data().chart) == true){
 					res.status(400).json({
 						message: 'barang ada'
 					})
 				}else {
-					console.log('mau masuk fungsi addd cart yang sudaH ADA')
 					addChart();
 				}
 			}else{
-				console.log('mau masuk fungsi ad cart masih kosongan')
 				addChart();
 			}
 		})
@@ -195,17 +213,10 @@ app.post('/user/chart/:id', (req, res, next)=>{
 				dataChart.push({
 					id_barang: req.body.id_barang
 				});
-
-				console.log("DI FUNSI AD CART", dataChart)
-
 				updateChart();
 		}
 
-
-
 		function updateChart(){
-
-			console.log('masuk fungsi updateChart')
 			docRefUser.doc(req.params.id).update({
 				"chart": dataChart
 			})
@@ -215,9 +226,7 @@ app.post('/user/chart/:id', (req, res, next)=>{
 			
 		}
 
-
 		function checking (barang) {
-			console.log('fungsi checking')
 			var check;
 			for (var i = 0; i < barang.length; i++) {
 				if(barang[i].id_barang == req.body.id_barang){
@@ -228,12 +237,6 @@ app.post('/user/chart/:id', (req, res, next)=>{
 			}
 		}
 
-
-
-});
-
-app.get('/chart/:id', (req, res)=>{
-	cartController.getId(docRefChart, req, res);
 });
 
 app.get('/chart/user/:id', (req, res, next)=> {
@@ -256,7 +259,6 @@ app.get('/chart/user/:id', (req, res, next)=> {
 					}else {
 						idCart.map(data =>{
 							if(data == doc.id){
-								console.log(doc.data())
 								x.push({
 									id: doc.id,
 									data:doc.data()
@@ -273,8 +275,8 @@ app.get('/chart/user/:id', (req, res, next)=> {
 	});
 });
 
-// BELUM SIAP
-app.delete('/chart/user/:id', (req, res, next)=> {
+app.put('/chart/user/:id', (req, res, next)=> {
+	var dataBarang = []
 	docRefUser.doc(req.params.id).get().then(doc =>{
 		if(!doc.exists){
 			console.log("Data Not Found")
@@ -282,9 +284,58 @@ app.delete('/chart/user/:id', (req, res, next)=> {
 				status : "data not found"
 			})
 		}else{
-
+			dataBarang = doc.data().chart
+			deleteBarang(dataBarang, function(data){
+				if(data.checkBarang == true){
+					updateCart(data.result)
+				}else {
+					res.status(400).json({
+						message: data.result
+					})
+				}
+			})
+			
 		}
-	})
+
+	});
+	function deleteBarang(barang, callback){
+		var checkBarang;
+		var result = []
+		for (var i = 0; i < barang.length; i++) {
+			if(barang[i].id_barang == req.body.id_barang){
+				barang.splice(i, 1)
+				result = barang
+				checkBarang = true;
+			}else{
+				checkBarang = false;
+			}
+		}
+		if(result.length > 0){
+			callback({
+				checkBarang : true,
+				result: result})
+		}else {
+			callback({
+				checkBarang: false,
+				result : "Barang Tidak ada"
+			})
+		}
+	}
+
+	function updateCart(resultBarang){
+		docRefUser.doc(req.params.id).update({
+			"chart": resultBarang
+		}).then(doc =>{
+			res.status(200).json({
+				message: 'success'
+			})
+			console.log("berhasil", resultBarang)
+		}).catch(err =>{
+			res.status(400).json({
+				message: 'failed'
+			})
+		})
+	}
 });
 
 app.get('/banner', (req,res,next)=> {
@@ -295,6 +346,7 @@ app.post('/user/transaksi/:id', (req, res)=>{
 
 	var dataTransaksi = [];
 	docRefUser.doc(req.params.id).get().then(doc =>{
+		console.log('1', doc)
 		if(!doc.exists){
 			console.log("Data Not Found")
 			res.status(400).json({
@@ -302,6 +354,7 @@ app.post('/user/transaksi/:id', (req, res)=>{
 			})
 		}else{
 			if(doc.data().transaksi.length > 0){
+				console.log('2', doc)
 				doc.data().transaksi.map(data => {
 					console.log(data)
 					dataTransaksi.push(data)
@@ -336,7 +389,7 @@ app.post('/user/transaksi/:id', (req, res)=>{
 				updateUserTransaksi(ref.id);
 			}).catch(err => {
 				res.status(400).json({
-					message: 'Failed'. err
+					message: 'Failed'
 				})
 			})
 	}
@@ -353,17 +406,7 @@ app.post('/user/transaksi/:id', (req, res)=>{
 });
 
 app.get('/transaksi/:id', (req,res, next)=> {
-	docRefTransaksi.doc(req.params.id).get().then(doc=>{
-		if(!doc.exists){
-			res.status(400).json({
-				status: "data not found"
-			})
-		}else{
-			res.status(200).json({
-				result: doc.data()
-			});
-		}
-	});
+	transaksiController.getId(docRefTransaksi ,req, res);
 });
 
 app.get('/user/transaksi/:id', (req,res,next)=> {
@@ -416,357 +459,25 @@ app.get('/user/transaksi/:id', (req,res,next)=> {
 });
 
 app.post('/search', (req, res, next)=> {
-	var result = []
-	var data = []
-	docRefBarang.get().then(snapshot => {
-		snapshot.forEach(doc => {
-			data.push(doc.data())	
-		})
-
-		checkSearch(data ,function(result){
-			if(result.unique == true){
-				res.status(200).json({
-					result: result.result
-				})	
-			}else {
-				res.status(400).json({
-					message: result.result
-				})
-			}
-		}) 
-	});
-
-
-
-	function checkSearch(data, callback){
-		var unique;
-		var dataResult = []
-		for (var i = 0; i < data.length; i++) {
-			if(req.body.search.toLowerCase() == data[i].nama_barang.toLowerCase() || data[i].nama_barang.toLowerCase().indexOf(req.body.search.toLowerCase()) !== -1){
-				unique = true
-				dataResult.push(data[i])
-              }else {
-              	unique = false;
-              }
-		}
-		if(dataResult.length >0){
-			callback({
-				unique: true,
-				result: dataResult
-			});
-		}else {
-			callback({
-				unique: false,
-				result: "Data tidak ada"
-			})			
-			
-		}
-	}
+	searchController.search(docRefBarang, req,res);
 });
-
 
 app.put('/profile/users/:id', (req, res)=>{
-	var dataUser = []
-
-	docRefUser.get().then(snapshot => {
-		snapshot.forEach(doc => {
-			console.log(doc.data().email)
-			if(doc.id != req.params.id){
-				dataUser.push(doc.data().email)
-			}
-		})
-		if(compaireEmail() == true){
-			updateUser()
-		}else {
-			console.log('email sudah ada')
-			res.status(400).json({
-				message: 'email sudah ada'
-			})
-		}
-	})
-
-	function compaireEmail(){
-		var checkEmail = false
-		for (var i = 0; i < dataUser.length; i++) {
-			if(dataUser[i] != req.body.email){
-				return checkEmail = true
-			}
-		}
-	}
-
-	function updateUser(){
-		docRefUser.doc(req.params.id).update({
-			fullname : req.body.fullname,
-			username : req.body.username,
-			email : req.body.email,
-			password : req.body.password,
-			alamat: req.body.alamat,
-			birthday: req.body.birthday
-
-		}).then(()=>{
-			console.log("update data")
-			res.status(200).json({
-				message: "success"
-			})
-		}).catch(err=>{
-			console.log("Error", err)
-		})
-	}
+	userController.UpdatePRofileUser(docRefUser, req, res);
 });
 
 
-
-
-// app.get('/users', (req, res)=>{
-// 	var dataUsers = []
-// 	docRefUser.get()
-//     .then(snapshot => {
-//       snapshot.forEach(doc => {
-// 	      dataUsers.push({
-// 	      	id: doc.id,
-// 	      	data_user: doc.data()})
-// 	      console.log(doc.id, '=>', doc.data());
-//       });
-// 	    	res.status(200).send({
-// 	    		result: dataUsers
-// 	    	})
-//     })
-//     .catch(err => {
-//       console.log('Error getting documents', err);
-//     });
-// });
-
-// app.get('/users/:id', (req, res)=>{
-// 	docRefUser.doc(req.params.id).get().then(doc =>{
-// 		if(!doc.exists){
-// 			console.log("Data Not Found")
-// 			res.status(400).json({
-// 				status : "data not found"
-// 			})
-// 		}else {
-// 			console.log("document data:", doc.data())
-// 			res.status(200).json({
-// 				result: doc.data()
-// 			})
-// 		}
-// 	}).catch(err=>{
-// 		console.log("Error", err)
-// 	})
-// });
-
-
-// app.post('/users', (req, res)=>{
-// 	docRefUser.add({
-// 		fullname : req.body.fullname,
-// 		username : req.body.username,
-// 		email : req.body.email,
-// 		password : req.body.password,
-// 		alamat : req.body.alamat,
-// 		chart: req.body.chart
-
-// 	}).then(ref=>{
-// 		console.log("add document", ref.id)
-// 		res.status(200).json({
-// 			message: "success"
-// 		})
-// 	}).catch(err=>{
-// 		console.log("Error", err)
-// 	})
-// });
-
-
-// app.delete('/users/:id', (req,res)=>{
-// 	docRefUser.doc(req.params.id).delete().then(()=>{
-// 		console.log("delete file")
-// 		res.status(200).json({
-// 		status: "delete success"
-// 	}).catch(err=>{
-// 		console.log("Error", err)
-// 		})
-// 	})
-// });
-
-// TAMBAH CART
-
-
-
-// app.get('/chart', (req, res)=>{
-// 	var dataChartAll = [];
-// 	docRefChart.get().then(snapshot=>{
-// 		snapshot.forEach(doc=>{
-// 			dataChartAll.push({
-// 				id: doc.id,
-// 				data_chart: doc.data()
-// 			})
-// 		});
-// 		res.status(200).send(dataChartAll)
+// BELUM SELESAI
+app.post('/transfers', (req, res) =>{
+	upload(req, res,(err) => {
 		
-// 		}).catch(err =>{
-// 			console.log("Error", err)
-// 	});
-// });
-
-
-// app.get('/penjual', (req,res)=> {
-// 	var dataPenjual = [];
-// 	docRefPenjual.get().then(snapshot=>{
-// 		snapshot.forEach(doc =>{
-// 			dataPenjual.push({
-// 				id: doc.id,
-// 				data_penjual: doc.data()})
-			
-// 			console.log("data penjual", doc.data())
-// 		})
-// 		res.status(200).send(dataPenjual)
-
-// 	}).catch(err =>{
-// 		console.log('Error', err)
-// 	})
-// });
-
-// app.get('/penjual/:id', (req,res)=>{
-// 	docRefPenjual.doc(req.params.id).get().then(doc=>{
-// 		if(!doc.exists){
-// 			res.status(400).json({
-// 				message: "data not found"
-// 			})
-// 		}else{
-// 			res.status(200).json({
-// 				result: doc.data()
-// 			});
-// 		}
-// 	});
-// });
-
-// app.post('/penjual', (req, res)=> {
-// 	docRefPenjual.add({
-// 		username : req.body.username,
-// 		fullname : req.body.fullname,
-// 		email: req.body.email,
-// 		password: req.body.password,
-// 		alamat: req.body.alamat,
-// 		nama_lapak: req.body.nama_lapak,
-// 		ratting: req.body.alamat,
-// 		barang: req.body.barang,
-// 		transaksi: req.body.transaksi
-// 	}).then(ref =>{
-// 		console.log("add penjual", ref.id)
-// 		res.status(200).json({
-// 			message: "success"
-// 		})
-// 	}).catch(err =>{
-// 		console.log("Error", err)
-// 	})
-// });
-
-// app.put('/profile/penjual/:id', (req,res)=>{
-// 	docRefPenjual.doc(req.params.id).update({
-// 		username : req.body.username,
-// 		fullname : req.body.fullname,
-// 		email: req.body.email,
-// 		password: req.body.password,
-// 		alamat: req.body.alamat,
-// 		nama_lapak: req.body.nama_lapak,
-// 	}).then(ref=>{
-// 		console.log("update data", ref.id)
-// 		res.status(200).json({
-// 			message: "success"
-// 		})
-// 	}).catch(err =>{
-// 		console.log("Error", err)
-// 	})
-// });
-
-// app.post('/penjual/barang/:id', (req,res)=>{
-// 	var dataIdBarang=[]
-// 	docRefPenjual.doc(req.params.id).get().then(doc =>{
-// 		if(!doc.exists){
-// 			console.log("Data Not Found")
-// 			res.status(400).json({
-// 				status : "data not found"
-// 			})
-// 		}else{
-// 			doc.data().barang.map(e=>{
-// 				dataIdBarang.push(e)
-// 			})
-
-// 			docRefBarang.add({
-// 				nama_barang: req.body.nama_barang,
-// 				description: req.body.description,
-// 				thumbnail: req.body.thumbnail,
-// 				price: req.body.price,
-// 				ratting: req.body.ratting,
-// 				stock : req.body.stock,
-// 				category: req.body.category,
-// 				penjual: doc.id
-// 			}).then(ref=>{
-// 				console.log("add barang", ref.id)
-// 				dataIdBarang.push({
-// 					id_barang: ref.id
-// 				})
-// 				docRefPenjual.doc(req.params.id).update({
-// 					"barang": 
-// 						dataIdBarang
-// 				}).then(()=>{
-// 					res.status(200).json({
-// 						message: "success"
-// 					})					
-// 				}).catch(err =>{
-// 				console.log("Error", err)
-// 				})
-// 			})
-// 		}
-// 	})
-// });
-
-
-
-
-
-
-
-			// docRefPenjual.get().then(snapshot=>{
-			// 	snapshot.forEach(doc=>{
-			// 		doc.data().barang.map(data=>{
-			// 			if(data.id_barang == req.body.id_barang){
-			// 				dataPenjualTransaksi = doc.id
-			// 				docRefTransaksi.add({
-			// 					id_user: req.body.id_user,
-			// 					id_barang: req.body.id_barang,
-			// 					jumlah: req.body.jumlah,
-			// 					total_harga: req.body.total_harga
-			// 				}).then(ref =>{
-			// 					dataTransaksi.push({
-			// 						id_transaksi: ref.id
-			// 					})
-			// 					docRefPenjual.doc(dataPenjualTransaksi).get().then(doc=>{
-			// 						if(!doc.exists){
-			// 							console.log("Data Not Found")
-			// 							res.status(400).json({
-			// 								status : "data not found"
-			// 							})
-			// 						}else{
-			// 							doc.data().transaksi.map(e=>{
-			// 								dataTransaksi.push(e)
-			// 							})
-			// 							docRefPenjual.doc(dataPenjualTransaksi).update({
-			// 								"transaksi": 
-			// 									dataTransaksi
-			// 							}).then(()=>{
-			// 								res.status(200).json({
-			// 									message: "success"
-			// 								})
-											
-			// 							}).catch(err=>{
-			// 								console.log("Error", err)
-			// 							});
-			// 						}
-			// 					});
-			// 				});
-			// 			}
-			// 		});
-			// 	});
-			// });
-
-
-  
+		var host = req.host;
+		var filePath = req.protocol + "://" + host + '/' + req.file.filename;
+		
+		res.status(200).json({
+			message: 'success',
+			result: filePath
+		})
+		console.log(req.file)
+	})
+});

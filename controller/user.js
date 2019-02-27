@@ -9,7 +9,6 @@ var index = {
 					status : "data not found"
 				})
 			}else {
-				// console.log("document data:", doc.data())
 				res.status(200).json({
 					result: doc.data()
 				})
@@ -18,59 +17,6 @@ var index = {
 			console.log("Error", err)
 		})		
 	},
-	// postCartId: function(ref, a, req, res){
-	// 	var dataChart = [];
-	// 	ref.doc(req.params.id).get().then(doc =>{
-	// 		if(!doc.exists){
-	// 			res.status(400).json({
-	// 				status : "data not found"
-	// 			})
-	// 		}else {
-	// 			if(doc.data().chart.length > 0){
-	// 				doc.data().chart.map(data=>{
-	// 					if(data.id_barang == req.body.id_barang){
-	// 						res.status(400).json({
-	// 							message: 'barang sudah ada'
-	// 						});
-	// 						console.log('barang sudah ada')
-	// 					}else {
-	// 						dataChart.push(data)
-	// 						addChart(doc.id);
-	// 					}
-	// 				});
-	// 			}else {
-	// 				addChart(doc.id)
-					
-	// 			}
-
-	// 		}
-	// 	});
-
-	// 	function addChart(x){
-	// 		a.add({
-	// 			id_pembeli: x,
-	// 			id_barang: req.body.id_barang
-	// 		}).then(doc=>{
-	// 			dataChart.push({
-	// 				id_chart: doc.id,
-	// 				id_barang: req.body.id_barang
-	// 			});
-
-	// 			ref.doc(req.params.id).update({
-	// 				"chart": 
-	// 					dataChart
-	// 			}).then(doc => {
-	// 				res.status(200).json({
-	// 					message: "success"
-	// 				})
-	// 			}).catch(err => {
-	// 				console.log('Error', err)
-	// 			})
-	// 		}).catch(err=>{
-	// 			console.log("Error", err)
-	// 		})
-	// 	}
-	// },
 	postUser: function(ref, req,res){
 		ref.add({
 				username: req.body.username,
@@ -95,6 +41,54 @@ var index = {
 		.catch((err) => {
 		    console.log('Error adding user', err);
 		});
+	},
+	UpdateProfileUser: function(ref, req, res){
+		var dataUser = []
+
+		ref.get().then(snapshot => {
+			snapshot.forEach(doc => {
+				console.log(doc.data().email)
+				if(doc.id != req.params.id){
+					dataUser.push(doc.data().email)
+				}
+			})
+			if(compaireEmail() == true){
+				updateUser()
+			}else {
+				console.log('email sudah ada')
+				res.status(400).json({
+					message: 'email sudah ada'
+				})
+			}
+		})
+
+		function compaireEmail(){
+			var checkEmail = false
+			for (var i = 0; i < dataUser.length; i++) {
+				if(dataUser[i] != req.body.email){
+					return checkEmail = true
+				}
+			}
+		}
+
+		function updateUser(){
+			ref.doc(req.params.id).update({
+				fullname : req.body.fullname,
+				username : req.body.username,
+				email : req.body.email,
+				password : req.body.password,
+				alamat: req.body.alamat,
+				birthday: req.body.birthday
+
+			}).then(()=>{
+				console.log("update data")
+				res.status(200).json({
+					message: "success"
+				})
+			}).catch(err=>{
+				console.log("Error", err)
+			})
+		}
 	}
 }
 

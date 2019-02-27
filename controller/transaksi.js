@@ -1,5 +1,5 @@
-var cart = {
-	getId: function(ref, req, res){
+var index = {
+	getId: function (ref, req, res){
 		ref.doc(req.params.id).get().then(doc=>{
 			if(!doc.exists){
 				res.status(400).json({
@@ -14,4 +14,4 @@ var cart = {
 	}
 }
 
-module.exports = cart;
+module.exports = index;
