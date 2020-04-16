@@ -1,16 +1,16 @@
-
+var decrypts  = require ('./passwords.js');
 
 var index = {
 	getById: function(ref, req, res){
 		ref.doc(req.params.id).get().then(doc =>{
 			if(!doc.exists){
-				console.log("Data Not Found")
 				res.status(400).json({
 					status : "data not found"
 				})
 			}else {
 				res.status(200).json({
-					result: doc.data()
+					result: doc.data(),
+					password: decrypts.encrypt(doc.data().password)
 				})
 			}
 		}).catch(err=>{
@@ -18,10 +18,11 @@ var index = {
 		})		
 	},
 	postUser: function(ref, req,res){
+		let password = decrypts.decrypt(req.body.password)
 		ref.add({
 				username: req.body.username,
 				fullname: null,
-				password: req.body.password,
+				password: password,
 				email: req.body.email,
 				alamat: null,
 				birthday: null,
@@ -33,7 +34,6 @@ var index = {
 				transaksi:[]
 		})
 		.then((snapshot) => {
-	    	console.log('User added: ', snapshot.id)
 	    	res.status(200).json({
 	    		message: 'Berhasil register'
 	    	});
@@ -47,7 +47,6 @@ var index = {
 
 		ref.get().then(snapshot => {
 			snapshot.forEach(doc => {
-				console.log(doc.data().email)
 				if(doc.id != req.params.id){
 					dataUser.push(doc.data().email)
 				}
@@ -55,7 +54,6 @@ var index = {
 			if(compaireEmail() == true){
 				updateUser()
 			}else {
-				console.log('email sudah ada')
 				res.status(400).json({
 					message: 'email sudah ada'
 				})
@@ -72,16 +70,16 @@ var index = {
 		}
 
 		function updateUser(){
+			
 			ref.doc(req.params.id).update({
 				fullname : req.body.fullname,
 				username : req.body.username,
 				email : req.body.email,
-				password : req.body.password,
+				password : decrypts.decrypt(req.body.password),
 				alamat: req.body.alamat,
 				birthday: req.body.birthday
 
 			}).then(()=>{
-				console.log("update data")
 				res.status(200).json({
 					message: "success"
 				})

@@ -28,6 +28,7 @@ var productController = require('./controller/product.js');
 var bannerController = require('./controller/banner.js');
 var searchController = require('./controller/search.js');
 var transaksiController = require('./controller/transaksi.js');
+var decrypts  = require ('./controller/passwords.js');
 
 // =============================================
 
@@ -61,25 +62,19 @@ app.post('/register', (req, res, next) => {
 	var emailExist
 
 	var getRefUserEmail = docRefUser.where('email', '==', req.body.email)
-	const hashPassword = crypto.AES(req.body.password)
-	console.log('hass', hashPassword)
-	var inputID
-
 	async function registerUser() {
 		try {
 
-		await getRefUserEmail.get().then(snapshot => {
-			snapshot.forEach(doc => {
-				emailExist = doc.data()
+			await getRefUserEmail.get().then(snapshot => {
+				snapshot.forEach(doc => {
+					emailExist = doc.data()
+				});
 			});
-		});
-
 			if (emailExist) {
 				res.status(400).json({
 					status: 'Failed',
 					message: 'email exist'
-				})
-				console.log('email sudah ada')
+				});
 			}else {
 				userController.postUser(docRefUser, req, res);
 			}
@@ -89,31 +84,6 @@ app.post('/register', (req, res, next) => {
 		}
 	}
 	registerUser();
-
-	// var genRandomString = function(length){
-	//     return crypto.randomBytes(Math.ceil(length/2))
-	//         .toString('hex')
-	//         .slice(0,length);
-	// 	};
-
-	// var sha512 = function(password, salt){
-	//     var hash = crypto.createHmac('sha512', salt);
-	//     hash.update(password);
-	//     var value = hash.digest('hex');
-	//     return {
-	//         salt:salt,
-	//         passwordHash:value
-	//     };
-	// };
-
-	// function saltHashPassword(userpassword) {
-	//     var salt = genRandomString(16); 
-	//     var passwordData = sha512(userpassword, salt);
-	//     console.log('UserPassword = '+userpassword);
-	//     console.log('Passwordhash = '+passwordData.passwordHash);
-	// }
-
-	// saltHashPassword(req.body.password);
 });
 
 app.post('/login', (req, res, next) => {
@@ -121,7 +91,7 @@ app.post('/login', (req, res, next) => {
 	var password;
 	var userID;
 
-	var getRefUserPasword = docRefUser.where('password', '==', req.body.password)
+	var getRefUserPasword = docRefUser.where('password', '==', decrypts.decrypt(req.body.password))
 	var getRefUserEmail = docRefUser.where('email', '==', req.body.email)
 	
 	async function login(){
@@ -138,7 +108,7 @@ app.post('/login', (req, res, next) => {
 
 				})
 			});
-			if(password == req.body.password && email == req.body.email){
+			if(password == decrypts.decrypt(req.body.password) && email == req.body.email){
 				valid(password, email, userID);
 			}
 			else {
@@ -463,7 +433,7 @@ app.post('/search', (req, res, next)=> {
 });
 
 app.put('/profile/users/:id', (req, res)=>{
-	userController.UpdatePRofileUser(docRefUser, req, res);
+	userController.UpdateProfileUser(docRefUser, req, res);
 });
 
 
