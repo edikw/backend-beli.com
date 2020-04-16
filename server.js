@@ -58,7 +58,6 @@ app.all('/*', (req, res, next)=>{
 });
 
 app.post('/register', (req, res, next) => {
-	var usernameExist
 	var emailExist
 
 	var getRefUserEmail = docRefUser.where('email', '==', req.body.email)
