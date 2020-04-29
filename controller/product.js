@@ -48,4 +48,4 @@ var product = {
 	}
 }
 
-module.exports = product;
+export default product;

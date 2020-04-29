@@ -15,4 +15,4 @@ var banner = {
 	}
 }
 
-module.exports = banner;
+export default banner;

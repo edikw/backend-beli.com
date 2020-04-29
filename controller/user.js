@@ -1,4 +1,4 @@
-var decrypts  = require ('./passwords.js');
+import { encrypt, decrypt } from './passwords.js';
 
 var index = {
 	getById: function(ref, req, res){
@@ -10,7 +10,7 @@ var index = {
 			}else {
 				res.status(200).json({
 					result: doc.data(),
-					password: decrypts.encrypt(doc.data().password)
+					password: encrypt(doc.data().password)
 				})
 			}
 		}).catch(err=>{
@@ -18,7 +18,7 @@ var index = {
 		})		
 	},
 	postUser: function(ref, req,res){
-		let password = decrypts.decrypt(req.body.password)
+		let password = decrypt(req.body.password)
 		ref.add({
 				username: req.body.username,
 				fullname: null,
@@ -75,7 +75,7 @@ var index = {
 				fullname : req.body.fullname,
 				username : req.body.username,
 				email : req.body.email,
-				password : decrypts.decrypt(req.body.password),
+				password : decrypt(req.body.password),
 				alamat: req.body.alamat,
 				birthday: req.body.birthday
 
@@ -90,4 +90,4 @@ var index = {
 	}
 }
 
-module.exports = index;
+export default index;
